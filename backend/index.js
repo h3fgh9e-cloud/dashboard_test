@@ -13,9 +13,6 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// [중요] 프론트엔드 빌드 파일(dist)을 서버가 직접 서비스합니다.
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
-
 const upload = multer({ storage: multer.memoryStorage() });
 
 const query = (sql, params = []) => new Promise((resolve, reject) => {
@@ -26,7 +23,9 @@ const run = (sql, params = []) => new Promise((resolve, reject) => {
   db.run(sql, params, function(err) { err ? reject(err) : resolve(this); });
 });
 
-// API 경로들
+// API 경로를 최상단으로 올립니다 (404 방지)
+app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toLocaleString() }));
+
 app.get('/api/history', async (req, res) => {
   try {
     const rows = await query('SELECT * FROM 운송비관리 ORDER BY created_at ASC');
@@ -40,6 +39,9 @@ app.get('/api/parts', async (req, res) => {
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+// [그다음] 프론트엔드 빌드 파일 서비스
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 app.post('/api/db/upload', upload.single('file'), async (req, res) => {
   const { password, mode } = req.body;
