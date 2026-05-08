@@ -79,9 +79,9 @@ app.post('/api/db/upload', upload.single('file'), async (req, res) => {
     }
 
     let historyCount = 0;
-    const historyData = getDataFromSheet("운송비관리", ["기록일시", "품명"]);
+    const historyData = getDataFromSheet("운송비관리", ["차종", "품명"]);
     for (const row of historyData) {
-      if (row['기록일시'] && row['품명']) {
+      if (row['차종'] && row['품명']) {
         let dateStr = "";
         const rawDate = row['기록일시'];
         if (rawDate instanceof Date) {
@@ -198,22 +198,15 @@ app.get('/api/db/download', async (req, res) => {
         const row = sheet.getRow(rIdx + 5);
         columns.forEach((col, cIdx) => {
           const cell = row.getCell(cIdx + 1);
-          cell.value = item[col.key];
+          if (col.key === 'seq_no') {
+            cell.value = rIdx + 1; // 강제 순차 번호 부여
+          } else {
+            cell.value = item[col.key];
+          }
           cell.alignment = { vertical: 'middle', horizontal: 'center' };
           cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
           if (col.format === 'currency') cell.numFmt = '#,##0';
           else if (col.format === 'decimal1') cell.numFmt = '#,##0.0';
-          else if (col.format === 'date') {
-            cell.numFmt = 'yyyy-mm-dd hh:mm:ss';
-            let dateVal = new Date(item[col.key]);
-            if (isNaN(dateVal.getTime())) {
-              const num = Number(item[col.key]);
-              if (!isNaN(num) && num > 40000) {
-                dateVal = new Date((num - 25569) * 86400 * 1000);
-              }
-            }
-            if (!isNaN(dateVal.getTime())) cell.value = dateVal;
-          }
         });
       });
 
@@ -222,24 +215,8 @@ app.get('/api/db/download', async (req, res) => {
       });
     };
 
-    addSheet('운송비기준', '운송비기준 마스터', [
-      { header: 'NO', key: 'id', width: 8 }, { header: '차량톤수', key: '차량톤수', width: 12 },
-      { header: '적재함 장(mm)', key: '적재함_장', width: 15 }, { header: '적재함 폭(mm)', key: '적재함_폭', width: 15 },
-      { header: '적재함 고(mm)', key: '적재함_고', width: 15 }, { header: '유효적재중량(kg)', key: '유효적재중량', width: 18 },
-      { header: '계수(60km 이하)', key: '계수_60이하', width: 15 }, { header: '고정(60km 이하)', key: '고정_60이하', format: 'currency', width: 18 },
-      { header: '계수(60km 초과)', key: '계수_60초과', width: 15 }, { header: '고정(60km 초과)', key: '고정_60초과', format: 'currency', width: 18 }
-    ], criteria);
-
-    addSheet('부품별 DB', '부품별 DB 마스터', [
-      { header: 'NO', key: 'id', width: 8 }, { header: '차종', key: '차종', width: 12 },
-      { header: '품명', key: '품명', width: 25 }, { header: '용기 장(mm)', key: '용기_장', width: 15 },
-      { header: '용기 폭(mm)', key: '용기_폭', width: 15 }, { header: '용기 고(mm)', key: '용기_고', width: 15 },
-      { header: '적입수량(EA/PLT)', key: '적입수량', width: 18 }
-    ], parts);
-
-    addSheet('운송비관리', '운송비관리 이력', [
-      { header: 'NO', key: 'id', width: 8 }, { header: '날짜', key: '날짜', width: 12 }, { header: '기록일시', key: '기록일시', format: 'date', width: 20 },
-      { header: '차종', key: '차종', width: 10 }, { header: '품명', key: '품명', width: 25 },
+    addSheet('운송비관리', '운송비관리', [
+      { header: 'NO', key: 'seq_no', width: 8 }, { header: '차종', key: '차종', width: 10 }, { header: '품명', key: '품명', width: 25 },
       { header: '출발지', key: '출발지', width: 15 }, { header: '목적지', key: '목적지', width: 15 }, { header: '거리(km)', key: '거리', width: 12 },
       { header: '납품차량', key: '납품차량', width: 12 }, { header: '1회 운송비', key: '일회_운송비', format: 'currency', width: 15 },
       { header: '용기 장(mm)', key: '용기_장', width: 12 }, { header: '용기 폭(mm)', key: '용기_폭', width: 12 },
@@ -248,6 +225,21 @@ app.get('/api/db/download', async (req, res) => {
       { header: '상차PLT(최종)', key: '상차_PLT', width: 15 }, { header: '추천 상차방법', key: '추천_상차방법', width: 25 },
       { header: '상차수량(EA)', key: '상차수량_EA', width: 15 }, { header: '개당 운송비(원/EA)', key: '개당_운송비', format: 'currency', width: 20 }
     ], history);
+
+    addSheet('부품별 DB', '부품별 DB', [
+      { header: 'NO', key: 'seq_no', width: 8 }, { header: '차종', key: '차종', width: 12 },
+      { header: '품명', key: '품명', width: 25 }, { header: '용기 장(mm)', key: '용기_장', width: 15 },
+      { header: '용기 폭(mm)', key: '용기_폭', width: 15 }, { header: '용기 고(mm)', key: '용기_고', width: 15 },
+      { header: '적입수량(EA/PLT)', key: '적입수량', width: 18 }
+    ], parts);
+
+    addSheet('운송비기준', '운송비기준', [
+      { header: 'NO', key: 'seq_no', width: 8 }, { header: '차량톤수', key: '차량톤수', width: 12 },
+      { header: '적재함 장(mm)', key: '적재함_장', width: 15 }, { header: '적재함 폭(mm)', key: '적재함_폭', width: 15 },
+      { header: '적재함 고(mm)', key: '적재함_고', width: 15 }, { header: '유효적재중량(kg)', key: '유효적재중량', width: 18 },
+      { header: '계수(60km 이하)', key: '계수_60이하', width: 15 }, { header: '고정(60km 이하)', key: '고정_60이하', format: 'currency', width: 18 },
+      { header: '계수(60km 초과)', key: '계수_60초과', width: 15 }, { header: '고정(60km 초과)', key: '고정_60초과', format: 'currency', width: 18 }
+    ], criteria);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent('표준 운송비 DB.xlsx'));

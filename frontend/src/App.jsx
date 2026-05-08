@@ -396,9 +396,9 @@ function App() {
               {activeTab === 'calculate' ? (
                 <table>
                   <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#1e293b' }}>
-                    <tr><th><input type="checkbox" onChange={e => setSelectedIds(e.target.checked ? currentItems.map(h => h.id) : [])} /></th><th>기록일시</th><th>차종</th><th>품명</th><th>출발지</th><th>목적지</th><th>거리</th><th>차량</th><th>1회 운송비</th><th>상차 PLT</th><th>개당 운송비</th><th>추천 상차방법</th></tr>
+                    <tr><th><input type="checkbox" onChange={e => setSelectedIds(e.target.checked ? currentItems.map(h => h.id) : [])} /></th><th>차종</th><th>품명</th><th>출발지</th><th>목적지</th><th>거리</th><th>차량</th><th>1회 운송비</th><th>상차 PLT</th><th>개당 운송비</th><th>추천 상차방법</th></tr>
                   </thead>
-                  <tbody>{currentItems.map(h => (<tr key={h.id}><td><input type="checkbox" checked={selectedIds.includes(h.id)} onChange={e => setSelectedIds(prev => e.target.checked ? [...prev, h.id] : prev.filter(id => id !== h.id))} /></td><td style={{fontSize:'12px'}}>{formatDateTime(h.기록일시)}</td><td>{h.차종}</td><td style={{fontWeight:'600'}}>{h.품명}</td><td>{h.출발지}</td><td>{h.목적지}</td><td>{h.거리}km</td><td>{h.납품차량}</td><td>₩{h.일회_운송비?.toLocaleString()}</td><td>{h.상차_PLT}</td><td style={{color:'var(--success)',fontWeight:'700'}}>₩{h.개당_운송비?.toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</td><td style={{fontSize:'12px'}}>{h.추천_상차방법}</td></tr>))}</tbody>
+                  <tbody>{currentItems.map(h => (<tr key={h.id}><td><input type="checkbox" checked={selectedIds.includes(h.id)} onChange={e => setSelectedIds(prev => e.target.checked ? [...prev, h.id] : prev.filter(id => id !== h.id))} /></td><td>{h.차종}</td><td style={{fontWeight:'600'}}>{h.품명}</td><td>{h.출발지}</td><td>{h.목적지}</td><td>{h.거리}km</td><td>{h.납품차량}</td><td>₩{h.일회_운송비?.toLocaleString()}</td><td>{h.상차_PLT}</td><td style={{color:'var(--success)',fontWeight:'700'}}>₩{h.개당_운송비?.toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</td><td style={{fontSize:'12px'}}>{h.추천_상차방법}</td></tr>))}</tbody>
                 </table>
               ) : (
                 <table>
