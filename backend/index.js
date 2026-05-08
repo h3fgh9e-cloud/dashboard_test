@@ -7,7 +7,7 @@ const db = require('./db');
 const { calculateLoadingStats, calculateOneTimeCost } = require('./calculator');
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -112,45 +112,62 @@ app.post('/api/db/upload', upload.single('file'), async (req, res) => {
       // 운송비기준은 마스터 데이터이므로 유지하거나 필요시 초기화
     }
 
-    // 부품별 DB
-    if (workbook.SheetNames.includes("부품별 DB")) {
-      const partsData = xlsx.utils.sheet_to_json(workbook.Sheets["부품별 DB"], { range: 3 });
-      for (const row of partsData) {
-        if (row['차종'] && row['품명']) {
-          await run(`INSERT OR REPLACE INTO 부품별_DB (차종, 품명, 용기_장, 용기_폭, 용기_고, 적입수량) VALUES (?, ?, ?, ?, ?, ?)`,
-            [row['차종'], row['품명'], row['용기 장(mm)'], row['용기 폭(mm)'], row['용기 고(mm)'], row['적입수량(EA/PLT)']]);
+    // 데이터 추출 도우미 함수: 특정 키워드가 있는 행을 찾아 데이터를 반환합니다.
+    const getDataFromSheet = (sheetName, keywords) => {
+      if (!workbook.SheetNames.includes(sheetName)) return [];
+      const sheet = workbook.Sheets[sheetName];
+      const rows = xlsx.utils.sheet_to_json(sheet, { header: 1 }); // 모든 데이터를 배열로 읽음
+      
+      // 키워드가 포함된 행(Header Row) 찾기
+      let headerIdx = -1;
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i] && keywords.every(k => rows[i].includes(k))) {
+          headerIdx = i;
+          break;
         }
+      }
+      
+      if (headerIdx === -1) return []; // 제목 행을 못 찾음
+      
+      // 제목 행을 기준으로 다시 JSON 변환
+      return xlsx.utils.sheet_to_json(sheet, { range: headerIdx, cellDates: true });
+    };
+
+    let partsCount = 0;
+    const partsData = getDataFromSheet("부품별 DB", ["차종", "품명"]);
+    for (const row of partsData) {
+      if (row['차종'] && row['품명']) {
+        await run(`INSERT OR REPLACE INTO 부품별_DB (차종, 품명, 용기_장, 용기_폭, 용기_고, 적입수량) VALUES (?, ?, ?, ?, ?, ?)`,
+          [row['차종'], row['품명'], row['용기 장(mm)'], row['용기 폭(mm)'], row['용기 고(mm)'], row['적입수량(EA/PLT)']]);
+        partsCount++;
       }
     }
 
     let historyCount = 0;
-    if (workbook.SheetNames.includes("운송비관리")) {
-      const sheet = workbook.Sheets["운송비관리"];
-      const historyData = xlsx.utils.sheet_to_json(sheet, { range: 3, cellDates: true });
-      for (const row of historyData) {
-        if (row['기록일시'] && row['품명']) {
-          // ... (날짜 변환 로직 동일)
-          let dateStr = "";
-          if (row['기록일시'] instanceof Date) {
-            const d = row['기록일시'];
-            dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-          } else if (!isNaN(row['기록일시']) && typeof row['기록일시'] !== 'string') {
-            const d = new Date((row['기록일시'] - 25569) * 86400 * 1000);
-            dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-          } else {
-            dateStr = String(row['기록일시']);
-          }
-
-          await run(`INSERT INTO 운송비관리 
-            (기록일시, 차종, 품명, 출발지, 목적지, 거리, 납품차량, 일회_운송비, 용기_장, 용기_폭, 용기_고, 적입수량, 상차_PLT, 추천_상차방법, 개당_운송비) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [dateStr, row['차종'], row['품명'], row['출발지'], row['목적지'], row['거리(km)'], row['납품차량'], row['1회 운송비'], row['용기 장(mm)'], row['용기 폭(mm)'], row['용기 고(mm)'], row['적입수량(EA/PLT)'], row['상차PLT(최종)'], row['추천 상차방법'], row['개당 운송비(원/EA)']]);
-          historyCount++;
+    const historyData = getDataFromSheet("운송비관리", ["기록일시", "품명"]);
+    for (const row of historyData) {
+      if (row['기록일시'] && row['품명']) {
+        let dateStr = "";
+        const rawDate = row['기록일시'];
+        if (rawDate instanceof Date) {
+          const d = rawDate;
+          dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+        } else if (!isNaN(rawDate) && typeof rawDate !== 'string') {
+          const d = new Date((rawDate - 25569) * 86400 * 1000);
+          dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+        } else {
+          dateStr = String(rawDate);
         }
+
+        await run(`INSERT INTO 운송비관리 
+          (기록일시, 차종, 품명, 출발지, 목적지, 거리, 납품차량, 일회_운송비, 용기_장, 용기_폭, 용기_고, 적입수량, 상차_PLT, 추천_상차방법, 개당_운송비) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [dateStr, row['차종'], row['품명'], row['출발지'], row['목적지'], row['거리(km)'], row['납품차량'], row['1회 운송비'], row['용기 장(mm)'], row['용기 폭(mm)'], row['용기 고(mm)'], row['적입수량(EA/PLT)'], row['상차PLT(최종)'], row['추천 상차방법'], row['개당 운송비(원/EA)']]);
+        historyCount++;
       }
     }
 
-    res.json({ message: `성공적으로 처리되었습니다. (이력 ${historyCount}건 저장됨)` });
+    res.json({ message: `업로드 완료! (마스터 ${partsCount}건, 이력 ${historyCount}건 저장됨)` });
   } catch (err) {
     console.error("Upload Error Details:", err);
     res.status(400).json({ error: `파일 처리 중 오류: ${err.message}` });
@@ -253,4 +270,4 @@ app.get('/api/db/download', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.listen(port, () => { console.log(`Server running at http://localhost:${port}`); });
+app.listen(port, '0.0.0.0', () => { console.log(`Server running at http://0.0.0.0:${port}`); });
