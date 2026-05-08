@@ -7,7 +7,11 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie, LineChart, Line, AreaChart, Area
 } from 'recharts';
 
-const API_BASE = `http://${window.location.hostname}:3001/api`;
+// 실행 환경에 따라 백엔드 주소를 자동으로 설정합니다.
+const isProduction = window.location.hostname.includes('onrender.com');
+const API_BASE = isProduction 
+  ? `https://transport-backend.onrender.com/api` // 사용자님의 실제 Render 백엔드 주소로 바꿔야 함
+  : `http://${window.location.hostname}:3001/api`;
 
 function App() {
   const [history, setHistory] = useState([]);
