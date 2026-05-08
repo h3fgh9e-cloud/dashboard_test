@@ -93,9 +93,9 @@ app.post('/api/db/upload', upload.single('file'), async (req, res) => {
         } else { dateStr = String(rawDate); }
 
         await run(`INSERT INTO 운송비관리 
-          (기록일시, 차종, 품명, 출발지, 목적지, 거리, 납품차량, 일회_운송비, 용기_장, 용기_폭, 용기_고, 적입수량, 상차_PLT, 추천_상차방법, 개당_운송비) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [dateStr, row['차종'], row['품명'], row['출발지'], row['목적지'], row['거리(km)'], row['납품차량'], row['1회 운송비'], row['용기 장(mm)'], row['용기 폭(mm)'], row['용기 고(mm)'], row['적입수량(EA/PLT)'], row['상차_PLT'], row['추천_상차방법'], row['개당_운송비']]);
+          (기록일시, 차종, 품명, 출발지, 목적지, 거리, 납품차량, 일회_운송비, 용기_장, 용기_폭, 용기_고, 적입수량, 장기준_PLT, 폭기준_PLT, 상차_PLT, 추천_상차방법, 상차수량_EA, 개당_운송비) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [dateStr, row['차종'], row['품명'], row['출발지'], row['목적지'], row['거리(km)'], row['납품차량'], row['1회 운송비'], row['용기 장(mm)'], row['용기 폭(mm)'], row['용기 고(mm)'], row['적입수량(EA/PLT)'], row['장기준 PLT'], row['폭기준 PLT'], row['상차PLT(최종)'], row['추천 상차방법'], row['상차수량(EA)'], row['개당 운송비(원/EA)']]);
         historyCount++;
       }
     }
@@ -152,12 +152,14 @@ app.post('/api/calculate', async (req, res) => {
     const recommendMethod = stats.장기준_PLT >= stats.폭기준_PLT ? '장 기준 / ' + stats.적재단수 + '단 적재' : '폭 기준 / ' + stats.적재단수 + '단 적재';
     
     const now = new Date();
-    const timestamp = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const kst = new Date(utc + (3600000 * 9));
+    const timestamp = `${kst.getFullYear()}/${String(kst.getMonth()+1).padStart(2,'0')}/${String(kst.getDate()).padStart(2,'0')} ${String(kst.getHours()).padStart(2,'0')}:${String(kst.getMinutes()).padStart(2,'0')}`;
 
     await run(`INSERT INTO 운송비관리 
       (날짜, 기록일시, 차종, 품명, 출발지, 목적지, 거리, 납품차량, 일회_운송비, 용기_장, 용기_폭, 용기_고, 적입수량, 장기준_PLT, 폭기준_PLT, 상차_PLT, 추천_상차방법, 상차수량_EA, 개당_운송비) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [now.toISOString().split('T')[0], timestamp, 차종, 품명, 출발지, 목적지, 거리, 납품차량, oneTimeCost, part.용기_장, part.용기_폭, part.용기_고, part.적입수량, stats.장기준_PLT, stats.폭기준_PLT, stats.상차_PLT, recommendMethod, loadingQtyTotal, unitCost]
+      [kst.toISOString().split('T')[0], timestamp, 차종, 품명, 출발지, 목적지, 거리, 납품차량, oneTimeCost, part.용기_장, part.용기_폭, part.용기_고, part.적입수량, stats.장기준_PLT, stats.폭기준_PLT, stats.상차_PLT, recommendMethod, loadingQtyTotal, unitCost]
     );
     res.json({ message: '산출 완료' });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -248,7 +250,7 @@ app.get('/api/db/download', async (req, res) => {
     ], history);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=Transport_Data.xlsx');
+    res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent('표준 운송비 DB.xlsx'));
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) { res.status(500).json({ error: err.message }); }

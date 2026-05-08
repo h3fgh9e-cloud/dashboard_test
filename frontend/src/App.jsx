@@ -22,7 +22,8 @@ function App() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectedPartIds, setSelectedPartIds] = useState([]);
   
-  const [currentPage, setCurrentPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [partsPage, setPartsPage] = useState(1);
   const itemsPerPage = 30;
 
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -41,6 +42,11 @@ function App() {
     checkConnection();
     document.title = "표준운송비 관리 대시보드";
   }, []);
+
+  useEffect(() => {
+    setHistoryPage(1);
+    setPartsPage(1);
+  }, [searchTerm]);
 
   const checkConnection = async () => {
     try {
@@ -186,6 +192,9 @@ function App() {
   const filteredData = activeTab === 'calculate' 
     ? history.filter(h => h.품명.toLowerCase().includes(searchTerm.toLowerCase()) || h.차종.toLowerCase().includes(searchTerm.toLowerCase()))
     : parts.filter(p => p.품명.toLowerCase().includes(searchTerm.toLowerCase()) || p.차종.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  const currentPage = activeTab === 'calculate' ? historyPage : partsPage;
+  const setCurrentPage = activeTab === 'calculate' ? setHistoryPage : setPartsPage;
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
