@@ -130,10 +130,12 @@ function App() {
     setLoading(true);
     setShowAuthModal(false);
     try {
-      await axios.post(`${API_BASE}/db/upload`, formData);
-      alert(`${uploadMode === 'overwrite' ? '초기화 후 ' : ''}업로드가 완료되었습니다.`);
+      const res = await axios.post(`${API_BASE}/db/upload`, formData);
+      alert(res.data.message);
       fetchData();
-    } catch (error) { alert(error.response?.data?.error || '업로드 파일을 확인해주세요.'); } 
+    } catch (error) { 
+      alert(error.response?.data?.error || '업로드 중 오류가 발생했습니다.'); 
+    } 
     finally { setLoading(false); e.target.value = null; setAuthPw(''); }
   };
 
