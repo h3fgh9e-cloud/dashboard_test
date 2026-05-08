@@ -10,7 +10,7 @@ import {
 // 실행 환경에 따라 백엔드 주소를 자동으로 설정합니다.
 const isProduction = window.location.hostname.includes('onrender.com');
 const API_BASE = isProduction 
-  ? `https://report-1-q31w.onrender.com/api` 
+  ? '/api' 
   : `http://${window.location.hostname}:3001/api`;
 
 function App() {
