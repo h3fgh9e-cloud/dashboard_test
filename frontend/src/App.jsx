@@ -34,12 +34,22 @@ function App() {
   const [newPart, setNewPart] = useState({ 차종: '', 품명: '', 용기_장: '', 용기_폭: '', 용기_고: '', 적입수량: '' });
   const [calcForm, setCalcForm] = useState({ 차종: '', 품명: '', 납품차량: '9.5TON', 출발지: '', 목적지: '', 거리: '', isManualCost: false, manualCost: '' });
 
+  const [isConnected, setIsConnected] = useState(false);
+
   useEffect(() => {
     fetchData();
+    checkConnection();
     document.title = "표준운송비 관리 대시보드";
   }, []);
 
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, activeTab]);
+  const checkConnection = async () => {
+    try {
+      await axios.get(`${API_BASE}/history`);
+      setIsConnected(true);
+    } catch (err) {
+      setIsConnected(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -49,7 +59,11 @@ function App() {
       ]);
       setHistory(Array.isArray(historyRes.data) ? historyRes.data : []);
       setParts(Array.isArray(partsRes.data) ? partsRes.data : []);
-    } catch (error) { console.error('Data fetching error:', error); }
+      setIsConnected(true);
+    } catch (error) { 
+      console.error('Data fetching error:', error);
+      setIsConnected(false);
+    }
   };
 
   const formatNumber = (num) => {
@@ -176,7 +190,13 @@ function App() {
     <div style={{ padding: '40px', maxWidth: '1600px', margin: '0 auto' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
         <div>
-          <h1 style={{ fontSize: '32px', fontWeight: '800', margin: '0', background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>표준운송비 관리 대시보드</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 style={{ fontSize: '32px', fontWeight: '800', margin: '0', background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>표준운송비 관리 대시보드</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '20px', background: isConnected ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: isConnected ? '#22c55e' : '#ef4444', fontSize: '12px', fontWeight: 'bold', marginTop: '5px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isConnected ? '#22c55e' : '#ef4444' }}></div>
+              {isConnected ? '서버 연결됨' : '서버 연결 안 됨'}
+            </div>
+          </div>
           <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>부품 마스터 및 운송 구간 기반 통합 관리 시스템</p>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
