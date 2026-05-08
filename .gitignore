@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+backend/transport_v6.db-journal
+frontend/node_modules/
+backend/node_modules/
