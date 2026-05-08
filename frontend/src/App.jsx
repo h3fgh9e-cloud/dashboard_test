@@ -47,6 +47,7 @@ function App() {
       await axios.get(`${API_BASE}/history`);
       setIsConnected(true);
     } catch (err) {
+      console.error('Connection check failed at:', API_BASE, err);
       setIsConnected(false);
     }
   };
@@ -61,8 +62,11 @@ function App() {
       setParts(Array.isArray(partsRes.data) ? partsRes.data : []);
       setIsConnected(true);
     } catch (error) { 
-      console.error('Data fetching error:', error);
+      console.error('Data fetching error at:', API_BASE, error);
       setIsConnected(false);
+      // 어떤 주소로 접속을 시도했는지 사용자에게 알립니다.
+      const targetUrl = `${window.location.origin}${API_BASE}`;
+      console.log("시도한 API 주소:", targetUrl);
     }
   };
 
