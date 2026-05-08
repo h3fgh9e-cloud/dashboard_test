@@ -123,43 +123,34 @@ app.post('/api/db/upload', upload.single('file'), async (req, res) => {
       }
     }
 
-    // 운송비관리
+    let historyCount = 0;
     if (workbook.SheetNames.includes("운송비관리")) {
       const sheet = workbook.Sheets["운송비관리"];
-      // cellDates: true를 사용하여 날짜를 최대한 Date 객체로 가져옵니다.
       const historyData = xlsx.utils.sheet_to_json(sheet, { range: 3, cellDates: true });
-      
       for (const row of historyData) {
-        // '기록일시' 또는 '날짜'가 포함된 열을 유연하게 찾습니다.
-        let rawDate = row['기록일시'];
-        if (!rawDate && row['날짜']) rawDate = row['날짜'];
-        
-        if (rawDate && row['품명']) {
+        if (row['기록일시'] && row['품명']) {
+          // ... (날짜 변환 로직 동일)
           let dateStr = "";
-          // 1. Date 객체인 경우
-          if (rawDate instanceof Date) {
-            const d = rawDate;
+          if (row['기록일시'] instanceof Date) {
+            const d = row['기록일시'];
             dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-          } 
-          // 2. 숫자로 들어온 경우 (엑셀 시리얼)
-          else if (!isNaN(rawDate) && typeof rawDate !== 'string') {
-            const d = new Date((rawDate - 25569) * 86400 * 1000);
+          } else if (!isNaN(row['기록일시']) && typeof row['기록일시'] !== 'string') {
+            const d = new Date((row['기록일시'] - 25569) * 86400 * 1000);
             dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+          } else {
+            dateStr = String(row['기록일시']);
           }
-          // 3. 이미 문자열인 경우
-          else {
-            dateStr = String(rawDate);
-          }
-          
+
           await run(`INSERT INTO 운송비관리 
             (기록일시, 차종, 품명, 출발지, 목적지, 거리, 납품차량, 일회_운송비, 용기_장, 용기_폭, 용기_고, 적입수량, 상차_PLT, 추천_상차방법, 개당_운송비) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [dateStr, row['차종'], row['품명'], row['출발지'], row['목적지'], row['거리(km)'], row['납품차량'], row['1회 운송비'], row['용기 장(mm)'], row['용기 폭(mm)'], row['용기 고(mm)'], row['적입수량(EA/PLT)'], row['상차PLT(최종)'], row['추천 상차방법'], row['개당 운송비(원/EA)']]);
+          historyCount++;
         }
       }
     }
 
-    res.json({ message: '성공적으로 처리되었습니다.' });
+    res.json({ message: `성공적으로 처리되었습니다. (이력 ${historyCount}건 저장됨)` });
   } catch (err) {
     console.error("Upload Error Details:", err);
     res.status(400).json({ error: `파일 처리 중 오류: ${err.message}` });
