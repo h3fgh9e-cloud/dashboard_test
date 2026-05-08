@@ -107,7 +107,7 @@ app.post('/api/db/upload', upload.single('file'), async (req, res) => {
         let oneTimeCost = row['1회 운송비'];
         let unitCost = row['개당 운송비(원/EA)'];
 
-        if (!finalSangPLT && truck && part.용기_장) {
+        if (truck && part.용기_장) {
           const stats = calculateLoadingStats(truck, part);
           if (stats) {
             finalJangPLT = stats.장기준_PLT;
@@ -278,6 +278,41 @@ app.get('/api/db/download', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+const fixExistingDatabase = async () => {
+  try {
+    const history = await query('SELECT * FROM 운송비관리 WHERE 장기준_PLT IS NULL OR 장기준_PLT = 0 OR 장기준_PLT = ""');
+    if (history.length === 0) return;
+
+    console.log(`Fixing ${history.length} records with missing loading stats...`);
+    const criteriaRows = await query('SELECT * FROM 운송비기준');
+    const criteriaMap = {};
+    criteriaRows.forEach(c => { criteriaMap[c.차량톤수] = c; });
+
+    for (const row of history) {
+      let truck = criteriaMap[row['납품차량']];
+      let part = { 용기_장: row['용기_장'], 용기_폭: row['용기_폭'], 용기_고: row['용기_고'], 적입수량: row['적입수량'] };
+      
+      if (truck && part.용기_장) {
+        const stats = calculateLoadingStats(truck, part);
+        if (stats) {
+          let finalJangPLT = stats.장기준_PLT;
+          let finalPokPLT = stats.폭기준_PLT;
+          let finalSangPLT = stats.상차_PLT;
+          let recommendMethod = stats.장기준_PLT >= stats.폭기준_PLT ? '장 기준 / ' + stats.적재단수 + '단 적재' : '폭 기준 / ' + stats.적재단수 + '단 적재';
+          let totalQty = finalSangPLT * part.적입수량;
+          let unitCost = totalQty > 0 ? row['일회_운송비'] / totalQty : 0;
+          
+          await run(`UPDATE 운송비관리 SET 장기준_PLT = ?, 폭기준_PLT = ?, 상차수량_EA = ?, 상차_PLT = ?, 추천_상차방법 = ?, 개당_운송비 = ? WHERE id = ?`, 
+            [finalJangPLT, finalPokPLT, totalQty, finalSangPLT, recommendMethod, unitCost, row.id]);
+        }
+      }
+    }
+    console.log('Database fix complete.');
+  } catch (err) {
+    console.error('Error fixing database:', err);
+  }
+};
+
 // 모든 경로에 대해 화면(index.html)을 반환합니다. (Express 5.x 문법 적용)
 app.get(/^(.*)$/, (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
@@ -285,4 +320,5 @@ app.get(/^(.*)$/, (req, res) => {
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`Server running at port ${port}`);
+  fixExistingDatabase();
 });
