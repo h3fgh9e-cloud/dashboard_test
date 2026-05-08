@@ -105,8 +105,8 @@ app.post('/api/db/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// 모든 경로에 대해 화면(index.html)을 반환합니다.
-app.get('*', (req, res) => {
+// 모든 경로에 대해 화면(index.html)을 반환합니다. (Express 5.x 문법 적용)
+app.get(/^(.*)$/, (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
