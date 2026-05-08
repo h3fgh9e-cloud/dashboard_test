@@ -131,10 +131,14 @@ function App() {
     setShowAuthModal(false);
     try {
       const res = await axios.post(`${API_BASE}/db/upload`, formData);
-      alert(res.data.message);
+      // 서버 응답이 undefined인 경우를 방지합니다.
+      const msg = res.data.message || res.data.error || '성공했으나 응답 메시지가 없습니다.';
+      alert(msg);
       fetchData();
     } catch (error) { 
-      alert(error.response?.data?.error || '업로드 중 오류가 발생했습니다.'); 
+      console.error("Upload Error:", error);
+      const errMsg = error.response?.data?.error || error.message || '알 수 없는 업로드 오류';
+      alert(`업로드 실패: ${errMsg}`); 
     } 
     finally { setLoading(false); e.target.value = null; setAuthPw(''); }
   };
