@@ -78,6 +78,10 @@ app.post('/api/db/upload', upload.single('file'), async (req, res) => {
       }
     }
 
+    const criteriaRows = await query('SELECT * FROM 운송비기준');
+    const criteriaMap = {};
+    criteriaRows.forEach(c => { criteriaMap[c.차량톤수] = c; });
+
     let historyCount = 0;
     const historyData = getDataFromSheet("운송비관리", ["차종", "품명"]);
     for (const row of historyData) {
@@ -92,10 +96,36 @@ app.post('/api/db/upload', upload.single('file'), async (req, res) => {
           dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
         } else { dateStr = String(rawDate); }
 
+        // 누락된 데이터 자동 산출
+        let part = { 용기_장: row['용기 장(mm)'], 용기_폭: row['용기 폭(mm)'], 용기_고: row['용기 고(mm)'], 적입수량: row['적입수량(EA/PLT)'] };
+        let truck = criteriaMap[row['납품차량']];
+        let finalJangPLT = row['장기준 PLT'] || 0;
+        let finalPokPLT = row['폭기준 PLT'] || 0;
+        let finalSangPLT = row['상차PLT(최종)'];
+        let recommendMethod = row['추천 상차방법'];
+        let totalQty = row['상차수량(EA)'];
+        let oneTimeCost = row['1회 운송비'];
+        let unitCost = row['개당 운송비(원/EA)'];
+
+        if (!finalSangPLT && truck && part.용기_장) {
+          const stats = calculateLoadingStats(truck, part);
+          if (stats) {
+            finalJangPLT = stats.장기준_PLT;
+            finalPokPLT = stats.폭기준_PLT;
+            finalSangPLT = stats.상차_PLT;
+            recommendMethod = stats.장기준_PLT >= stats.폭기준_PLT ? '장 기준 / ' + stats.적재단수 + '단 적재' : '폭 기준 / ' + stats.적재단수 + '단 적재';
+            totalQty = finalSangPLT * part.적입수량;
+            if (!oneTimeCost) {
+              oneTimeCost = calculateOneTimeCost(truck, row['거리(km)']);
+            }
+            unitCost = totalQty > 0 ? oneTimeCost / totalQty : 0;
+          }
+        }
+
         await run(`INSERT INTO 운송비관리 
           (기록일시, 차종, 품명, 출발지, 목적지, 거리, 납품차량, 일회_운송비, 용기_장, 용기_폭, 용기_고, 적입수량, 장기준_PLT, 폭기준_PLT, 상차_PLT, 추천_상차방법, 상차수량_EA, 개당_운송비) 
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [dateStr, row['차종'], row['품명'], row['출발지'], row['목적지'], row['거리(km)'], row['납품차량'], row['1회 운송비'], row['용기 장(mm)'], row['용기 폭(mm)'], row['용기 고(mm)'], row['적입수량(EA/PLT)'], row['장기준 PLT'], row['폭기준 PLT'], row['상차PLT(최종)'], row['추천 상차방법'], row['상차수량(EA)'], row['개당 운송비(원/EA)']]);
+          [dateStr, row['차종'], row['품명'], row['출발지'], row['목적지'], row['거리(km)'], row['납품차량'], oneTimeCost, part.용기_장, part.용기_폭, part.용기_고, part.적입수량, finalJangPLT, finalPokPLT, finalSangPLT, recommendMethod, totalQty, unitCost]);
         historyCount++;
       }
     }
